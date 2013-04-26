@@ -1,6 +1,7 @@
 # Dynamic-Intro.js
 
-> This is an improved version of Intro.js optimized for single-page applications.
+<h4> This is an improved version of Intro.js optimized for single-page applications.</h4>
+Demo: <a href="http://tracqlist.com/tutorial">http://tracqlist.com/tutorial</a>
 
 > Better introductions for websites and features with a step-by-step guide for your projects.
 
@@ -82,7 +83,7 @@ Now you can run this command to minify all static resources:
    - First commit. 
 
 ## Author
-**Afshin Mehrabani** **Burak Emre Kabakcý**
+**Afshin Mehrabani**, **Burak Emre KabakcÄ±*
 
 ## License
 > Copyright (C) 2012 Afshin Mehrabani (afshin.meh@gmail.com)
