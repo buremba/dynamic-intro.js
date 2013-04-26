@@ -3,7 +3,7 @@
  * https://github.com/usablica/intro.js
  * MIT licensed
  *
- * Copyright (C) 2013 usabli.ca - A weekend project by Afshin Mehrabani (@afshinmeh)
+ * Copyright (C) 2013 usabli.ca - A weekend project by Afshin Mehrabani (@afshinmeh), Burak Emre Kabakcý (@bu7emba)
  */
 
 (function (root, factory) {
@@ -26,9 +26,9 @@
    *
    * @class IntroJs
    */
-  function IntroJs(obj) {
-    this._targetElement = obj;
-
+  function IntroJs(obj, target) {
+    this.data = obj;
+    this.target = target || document.body;
     this._options = {
       nextLabel: 'Next &rarr;',
       prevLabel: '&larr; Back',
@@ -43,26 +43,22 @@
    *
    * @api private
    * @method _introForElement
-   * @param {Object} targetElm
    * @returns {Boolean} Success or not?
    */
-  function _introForElement(targetElm) {
-    var allIntroSteps = targetElm.querySelectorAll('*[data-intro]'),
+  function _introForElement() {
         introItems = [],
         self = this;
-
     //if there's no element to intro
-    if(allIntroSteps.length < 1) {
+    if(this.data.length < 1) {
       return false;
     }
-
-    for (var i = 0, elmsLength = allIntroSteps.length; i < elmsLength; i++) {
-      var currentElement = allIntroSteps[i];
+    for (var i = 0, elmsLength = this.data.length; i < elmsLength; i++) {
       introItems.push({
-        element: currentElement,
-        intro: currentElement.getAttribute('data-intro'),
-        step: parseInt(currentElement.getAttribute('data-step'), 10),
-        position: currentElement.getAttribute('data-position') || this._options.tooltipPosition
+        element: this.data[i].element,
+        intro: this.data[i].message,
+        step: i,
+        position: this.data[i].position || this._options.tooltipPosition,
+        load: this.data[i].load
       });
     }
 
@@ -75,21 +71,22 @@
     self._introItems = introItems;
 
     //add overlay layer to the page
-    if(_addOverlayLayer.call(self, targetElm)) {
+    if(_addOverlayLayer.call(self,  this.target)) {
       //then, start the show
       _nextStep.call(self);
 
-      var skipButton = targetElm.querySelector('.introjs-skipbutton'),
-          nextStepButton = targetElm.querySelector('.introjs-nextbutton');
+      var skipButton =  this.target.querySelector('.introjs-skipbutton'),
+          nextStepButton =  this.target.querySelector('.introjs-nextbutton');
 
       self._onKeyDown = function(e) {
+        return;
         if (e.keyCode === 27) {
           //escape key pressed, exit the intro
-          _exitIntro.call(self, targetElm);
+          _exitIntro.call(self,  this.target);
         } else if(e.keyCode === 37) {
           //left arrow
           _previousStep.call(self);
-        } else if (e.keyCode === 39 || e.keyCode === 13) {
+        } else if (e.keyCode === 39) {
           //right arrow or enter
           _nextStep.call(self);
         }
@@ -113,6 +110,7 @@
   function _goToStep(step) {
     //because steps starts with zero
     this._currentStep = step - 2;
+
     if(typeof (this._introItems) !== 'undefined') {
       _nextStep.call(this);
     }
@@ -130,18 +128,17 @@
     } else {
       ++this._currentStep;
     }
-
+   
     if((this._introItems.length) <= this._currentStep) {
       //end of the intro
       //check if any callback is defined
-      if (typeof (this._introCompleteCallback) === 'function') {
-        this._introCompleteCallback.call(this);
+      if (typeof (this._completeEvent) === 'function') {
+        this._completeEvent.call(this);
       }
-      _exitIntro.call(this, this._targetElement);
+      _exitIntro.call(this, this.data);
       return;
     }
-
-    _showElement.call(this, this._introItems[this._currentStep].element);
+    _showElement.call(this, typeof(this._introItems[this._currentStep].element)==="function" ? this._introItems[this._currentStep].element() : this._introItems[this._currentStep].element);
   }
 
   /**
@@ -165,9 +162,9 @@
    * @method _exitIntro
    * @param {Object} targetElement
    */
-  function _exitIntro(targetElement) {
+  function _exitIntro() {
     //remove overlay layer from the page
-    var overlayLayer = targetElement.querySelector('.introjs-overlay');
+    var overlayLayer = this.target.querySelector('.introjs-overlay');
     //for fade-out animation
     overlayLayer.style.opacity = 0;
     setTimeout(function () {
@@ -176,7 +173,7 @@
       }
     }, 500);
     //remove all helper layers
-    var helperLayer = targetElement.querySelector('.introjs-helperLayer');
+    var helperLayer = this.target.querySelector('.introjs-helperLayer');
     if (helperLayer) {
       helperLayer.parentNode.removeChild(helperLayer);
     }
@@ -194,8 +191,8 @@
     //set the step to zero
     this._currentStep = undefined;
     //check if any callback is defined
-    if (this._introExitCallback != undefined) {
-      this._introExitCallback.call(this);
+    if (this._exitEvent != undefined) {
+      this._exitEvent.call(this);
     }
   }
 
@@ -253,8 +250,8 @@
    */
   function _showElement(targetElement) {
     
-    if (typeof (this._introChangeCallback) !== 'undefined') {
-        this._introChangeCallback.call(this, targetElement);
+    if (typeof (this._changeEvent) !== 'undefined') {
+        this._changeEvent.call(this, targetElement);
     }
     
     var self = this,
@@ -287,9 +284,9 @@
       }
       self._lastShowElementTimer = setTimeout(function() {
         //set current step to the label
-        oldHelperNumberLayer.innerHTML = targetElement.getAttribute('data-step');
+        oldHelperNumberLayer.innerHTML =  self._introItems[self._currentStep].step;
         //set current tooltip text
-        oldtooltipLayer.innerHTML = targetElement.getAttribute('data-intro');
+        oldtooltipLayer.innerHTML = self._introItems[self._currentStep].intro;
         //set the tooltip position
         _placeTooltip.call(self, targetElement, oldtooltipContainer, oldArrowLayer);
         //show the tooltip
@@ -309,15 +306,15 @@
                                         'left: '  + (elementPosition.left - 5)    + 'px;');
 
       //add helper layer to target element
-      this._targetElement.appendChild(helperLayer);
+      this.target.appendChild(helperLayer);
 
       helperNumberLayer.className = 'introjs-helperNumberLayer';
       arrowLayer.className = 'introjs-arrow';
       tooltipLayer.className = 'introjs-tooltip';
 
-      helperNumberLayer.innerHTML = targetElement.getAttribute('data-step');
+      helperNumberLayer.innerHTML = this._introItems[this._currentStep].step+1;
       tooltipLayer.innerHTML = '<div class="introjs-tooltiptext">' +
-                               targetElement.getAttribute('data-intro') +
+                               this._introItems[this._currentStep].intro +
                                '</div><div class="introjs-tooltipbuttons"></div>';
       helperLayer.appendChild(helperNumberLayer);
       tooltipLayer.appendChild(arrowLayer);
@@ -332,8 +329,8 @@
         }
       };
 
-      nextTooltipButton.href = 'javascript:void(0);';
-      nextTooltipButton.innerHTML = this._options.nextLabel;
+      //nextTooltipButton.href = 'javascript:void(0);';
+      nextTooltipButton.innerHTML = this._introItems.length-1>this._currentStep ? this._options.nextLabel : this._options.doneLabel;
 
       //previous button
       var prevTooltipButton = document.createElement('a');
@@ -354,7 +351,7 @@
       skipTooltipButton.innerHTML = this._options.skipLabel;
 
       skipTooltipButton.onclick = function() {
-        _exitIntro.call(self, self._targetElement);
+        _exitIntro.call(self, self.data);
       };
 
       var tooltipButtonsLayer = tooltipLayer.querySelector('.introjs-tooltipbuttons');
@@ -413,6 +410,7 @@
         window.scrollBy(0, bottom + 100); // 70px + 30px padding from edge to look nice
       }
     }
+    if(this._introItems[this._currentStep].load) this._introItems[this._currentStep].load(self);
   }
 
   /**
@@ -502,6 +500,8 @@
    * @returns Element's position info
    */
   function _getOffset(element) {
+    if(!element)
+        return console.log("the element you provided is not exist in dom");
     var elementPosition = {};
 
     //set width
@@ -541,23 +541,8 @@
     return obj3;
   }
 
-  var introJs = function (targetElm) {
-    if (typeof (targetElm) === 'object') {
-      //Ok, create a new instance
-      return new IntroJs(targetElm);
-
-    } else if (typeof (targetElm) === 'string') {
-      //select the target element with query selector
-      var targetElement = document.querySelector(targetElm);
-
-      if (targetElement) {
-        return new IntroJs(targetElement);
-      } else {
-        throw new Error('There is no element with given selector.');
-      }
-    } else {
-      return new IntroJs(document.body);
-    }
+  var introJs = function (data) {
+      return new IntroJs(data);
   };
 
   /**
@@ -582,7 +567,7 @@
       return this;
     },
     start: function () {
-      _introForElement.call(this, this._targetElement);
+      _introForElement.call(this);
       return this;
     },
     goToStep: function(step) {
@@ -590,31 +575,21 @@
       return this;
     },
     exit: function() {
-      _exitIntro.call(this, this._targetElement);
+      _exitIntro.call(this, this.data);
     },
-    onchange: function(providedCallback) {
-      if (typeof (providedCallback) === 'function') {
-        this._introChangeCallback = providedCallback;
-      } else {
-        throw new Error('Provided callback for onchange was not a function.');
-      }
-      return this;
-    },
-    oncomplete: function(providedCallback) {
-      if (typeof (providedCallback) === 'function') {
-        this._introCompleteCallback = providedCallback;
-      } else {
-        throw new Error('Provided callback for oncomplete was not a function.');
-      }
-      return this;
-    },
-    onexit: function(providedCallback) {
-      if (typeof (providedCallback) === 'function') {
-        this._introExitCallback = providedCallback;
-      } else {
-        throw new Error('Provided callback for onexit was not a function.');
-      }
-      return this;
+    on: function(event, callback) {
+         if (typeof (callback) === 'function') {
+          if(event=='change') {
+            this._changeEvent = callback;
+          }else
+          if(event=='exit') {
+            this._exitEvent = callback;
+          }else
+          if(event=='complete') {
+            this._completeEvent = callback;
+          }
+         }else
+            throw new Error('Provided callback is not a function.');
     }
   };
 
